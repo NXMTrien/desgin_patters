@@ -6,7 +6,7 @@ const tourSchema = new mongoose.Schema({
   destination: { type: String, required: true },
   description: { type: String, required: true },
   price: { type: Number, required: true, min: 0 },
-  duration: { type: Number, required: true, min: 1 }, // Số ngày
+  duration: { type: Number, required: true, min: 1 }, 
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',

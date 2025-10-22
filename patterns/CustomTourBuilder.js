@@ -44,9 +44,10 @@ class ITourBuilder {
   setDuration(days) { throw new Error('Method not implemented'); }
   setTransportation(transportation) { throw new Error('Method not implemented'); }
   setAccommodation(type) { throw new Error('Method not implemented'); }
-  addActivity(activity) { throw new new Error('Method not implemented'); }
+  addActivity(activity) { throw new Error('Method not implemented'); }
   build() { throw new Error('Method not implemented'); }
 }
+
 
 // 3. Concrete Builder: Triển khai các bước xây dựng
 class ConcreteCustomTourBuilder extends ITourBuilder {

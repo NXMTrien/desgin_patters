@@ -7,6 +7,7 @@ const bookingSchema = new mongoose.Schema({
     ref: 'Tour',
     required: true
   },
+  customTour: { type: mongoose.Schema.Types.ObjectId, ref: 'CustomTourRequest' },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -27,7 +28,7 @@ const bookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'cancelled', 'completed'],
+    enum: ['pending', 'confirmed', 'cancelled', 'completed','pending_payment'],
     default: 'pending'
   }
 }, { timestamps: true });

@@ -7,7 +7,7 @@ const customTourRequestSchema = new mongoose.Schema({
     ref: 'User',
     required: true // Yêu cầu người dùng phải đăng nhập
   },
-  destination: { type: String, required: true },
+  title: { type: String, required: true },
   durationDays: { type: Number, required: true },
   transportation: { type: String, required: true },
   accommodation: { type: String, required: true },
@@ -15,8 +15,8 @@ const customTourRequestSchema = new mongoose.Schema({
   estimatedPrice: { type: Number, required: true },
   status: {
     type: String,
-    enum: ['pending', 'reviewed', 'quoted', 'booked', 'rejected'],
-    default: 'pending' // Admin cần xem xét yêu cầu này
+   enum: ['pending', 'reviewed', 'quoted', 'confirmed', 'booked', 'rejected'],
+  default: 'pending'
   },
   adminNotes: { type: String }
 }, { timestamps: true });

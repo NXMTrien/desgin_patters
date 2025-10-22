@@ -2,11 +2,24 @@
 const express = require('express');
 const router = express.Router();
 const customTourController = require('../controllers/customTourController');
+const { protect} = require('../middleware/authMiddleware');
+const { checkAdmin } = require('../controllers/authControllers'); 
+const {
+    getAllRequests,
+    updateRequestStatus
+} = customTourController;
 
-// Không yêu cầu đăng nhập để tạo đề xuất tour
-router.post('/', customTourController.createCustomTour);
 
-// Route để xem tour được xây dựng sẵn (sử dụng Director)
+
+router.post('/', protect, customTourController.createCustomTour);
+
+
 router.get('/predefined', customTourController.getPredefinedTour);
+
+router.put('/:id/confirm', protect, checkAdmin, customTourController.confirmCustomTour);
+
+router.get('/', protect, checkAdmin, getAllRequests); 
+router.put('/:id', protect, checkAdmin, updateRequestStatus); 
+
 
 module.exports = router;

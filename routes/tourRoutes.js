@@ -1,9 +1,10 @@
+
 // routes/tourRoutes.js
 const express = require('express');
 const router = express.Router();
 const tourController = require('../controllers/tourControllers');
 const categoryRoutes = require('./categoryRoutes');
-const { protect } = require('../middleware/auhtMiddleware');
+const { protect } = require('../middleware/authMiddleware');
 const { restrictTo } = require('../middleware/permissionMiddleware');
 
 // Public: Người dùng thường có thể xem
