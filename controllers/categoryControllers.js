@@ -24,12 +24,11 @@ exports.createCategory = async (req, res) => {
 exports.getAllCategories = async (req, res) => {
   try {
     const categories = await Category.find();
+
     res.status(200).json({
       status: 'success',
       results: categories.length,
-      data: {
-        categories
-      }
+      data: { categories }
     });
   } catch (error) {
     res.status(500).json({

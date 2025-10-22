@@ -7,6 +7,82 @@ const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '1d' });
 };
 
+exports.checkAdmin = (req, res, next) => {
+    // Giả định middleware `protect` đã chạy và gán user vào req.user
+    if (req.user && req.user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).json({ message: '🚫 Bạn không có quyền truy cập chức năng này.' });
+    }
+};
+
+
+
+exports.getAllUsers = async (req, res) => {
+    try {
+       
+        const users = await User.find().select('-password');
+        
+       
+        const formattedUsers = users.map(user => ({
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            isBlocked: user.isBlocked || false, 
+        }));
+
+        res.status(200).json({
+            count: formattedUsers.length,
+            users: formattedUsers
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
+exports.updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role, isBlocked } = req.body;
+        const updateFields = {};
+
+        // 1. Chỉ Admin mới được update role
+        if (role && (role === 'user' || role === 'admin')) {
+            updateFields.role = role;
+        }
+
+        // 2. Cập nhật trạng thái Block
+        if (typeof isBlocked === 'boolean') {
+            updateFields.isBlocked = isBlocked;
+        }
+
+        if (Object.keys(updateFields).length === 0) {
+            return res.status(400).json({ message: 'Không có trường nào hợp lệ để cập nhật.' });
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            id,
+            updateFields,
+            { new: true, runValidators: true }
+        ).select('-password');
+
+        if (!updatedUser) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
+        }
+
+        res.status(200).json({
+            message: 'Cập nhật người dùng thành công',
+            user: updatedUser
+        });
+
+    } catch (error) {
+        // Xử lý lỗi validation hoặc server
+        res.status(400).json({ message: error.message });
+    }
+};
+
 exports.registerUser = async (req, res) => {
   try {
     // 1. Lấy dữ liệu từ body
