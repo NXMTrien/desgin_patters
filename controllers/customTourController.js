@@ -26,7 +26,7 @@ exports.createCustomTour = async (req, res) => { // Thêm async
         // 2. Tạo đối tượng Request để lưu vào DB
         const newRequest = await CustomTourRequest.create({
             user: req.user.id, // Lấy User ID từ token (sau khi qua protect middleware)
-            title: customTourDetails.destination,
+            destination: customTourDetails.destination,
             durationDays: customTourDetails.durationDays,
             transportation: customTourDetails.transportation,
             accommodation: customTourDetails.accommodation,
@@ -72,7 +72,8 @@ exports.confirmCustomTour = async (req, res) => {
     if (!customTour) {
       return res.status(404).json({ message: 'Không tìm thấy yêu cầu tour' });
     }
-
+if (numberOfPeople) customTour.numberOfPeople = numberOfPeople;
+    if (startDate) customTour.startDate = new Date(startDate);
     // Cập nhật trạng thái custom tour
     customTour.status = 'booked';
     if (finalPrice) customTour.finalPrice = finalPrice; 
@@ -83,7 +84,7 @@ exports.confirmCustomTour = async (req, res) => {
       customTour: customTour._id,
       user: customTour.user._id,
       tour: customTour._id, 
-      numberOfPeople: numberOfPeople || 1,
+      numberOfPeople: Number(numberOfPeople) || 1,
       startDate: startDate ? new Date(startDate) : new Date(),
       totalPrice: finalPrice || customTour.estimatedPrice,
       status: 'pending_payment'

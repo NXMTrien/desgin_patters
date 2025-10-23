@@ -37,7 +37,9 @@ exports.createBooking = async (req, res) => {
 // Xem các Booking của cá nhân
 exports.getMyBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find({ user: req.user.id }).populate('tour');
+    const bookings = await Booking.find({ user: req.user.id })
+ .populate('tour') 
+.populate('customTour');
     res.status(200).json({ status: 'success', results: bookings.length, data: { bookings } });
   } catch (error) {
     res.status(500).json({ status: 'fail', message: error.message });
@@ -47,7 +49,7 @@ exports.getMyBookings = async (req, res) => {
 // ADMIN: Xem tất cả bookings
 exports.getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find().populate('tour').populate('user', 'username email');
+    const bookings = await Booking.find().populate('tour').populate('customTour') .populate('user', 'username email');
     res.status(200).json({ status: 'success', results: bookings.length, data: { bookings } });
   } catch (error) {
     res.status(500).json({ status: 'fail', message: error.message });
