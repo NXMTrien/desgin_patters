@@ -14,7 +14,23 @@ const tourSchema = new mongoose.Schema({
   },
   averageRating: { type: Number, default: 0 },
   maxGroupSize: { type: Number, required: true, min: 1 },
-  // Thêm các trường khác: images, dates, v.v.
+ imageCover: {
+        type: String, // Tên file hoặc URL của ảnh chính
+        required: [true, 'Tour cần có một ảnh bìa (cover image) chính.']
+    },
+    images: {
+        type: [String], 
+        validate: {
+            validator: function(val) {
+                
+               
+                return val.length <= 5; 
+            },
+            message: 'Tour chỉ có thể có tối đa 5 ảnh phụ.'
+        },
+        default: []
+    },
+    // ----------------------------------------------------
 }, { timestamps: true });
 
 module.exports = mongoose.model('Tour', tourSchema);

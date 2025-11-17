@@ -7,13 +7,19 @@ const {  registerUser,
   getMe,
   getAllUsers,
   updateUser,
-  checkAdmin } = require('../controllers/authControllers');
+  checkAdmin,
+verifyEmail, 
+  resendVerificationEmail } = require('../controllers/authControllers');
 const { protect } = require('../middleware/authMiddleware');
 
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/logout', logoutUser);
 router.get('/me', protect, getMe);
+
+router.post('/verify-email', verifyEmail);
+
+router.post('/resend-email', resendVerificationEmail);
 
 
 // Lấy danh sách tất cả người dùng

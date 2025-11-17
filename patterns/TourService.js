@@ -26,10 +26,25 @@ class TourService extends ITourService {
   }
 
   async createTour(data) {
-    return this.Tour.create(data);
-  }
+    
+    if (data.images && data.images.length > 5) {
+        throw new Error('Tour chỉ có thể có tối đa 5 ảnh phụ.');
+    }
+    
+    
+    if (!data.imageCover) {
+         throw new Error('Tour cần có một ảnh bìa (imageCover).');
+    }
+
+  return this.Tour.create(data);
+ }
 
   async updateTour(id, data) {
+    if (data.images && data.images.length > 5) {
+        throw new Error('Tour chỉ có thể có tối đa 5 ảnh phụ.');
+    }
+
+
     return this.Tour.findByIdAndUpdate(id, data, { new: true, runValidators: true });
   }
 
