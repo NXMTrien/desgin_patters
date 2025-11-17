@@ -7,7 +7,38 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
-  // Các trường khác có thể thêm sau
+    phone: {
+        type: String,
+        trim: true,
+        
+    },
+    address: {
+        type: String,
+        trim: true,
+    },
+    dateOfBirth: {
+        type: Date, 
+        
+    },
+    otp: {
+        type: String, 
+        select: false 
+    },
+    otpExpires: {
+        type: Date, 
+        select: false
+    },
+    isVerified: {
+        type: Boolean, 
+        default: false
+    },
+
+   
+    permissions: {
+        type: [String], 
+        default: ['view_tours'], 
+    }
+  
 }, { timestamps: true });
 
 // Hash mật khẩu trước khi lưu

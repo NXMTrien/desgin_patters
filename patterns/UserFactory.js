@@ -5,6 +5,12 @@ class User {
     this.username = data.username;
     this.email = data.email;
     this.role = data.role;
+    this.phone = data.phone || null;
+    this.address = data.address || null;
+    this.firstName = data.firstName || null;
+    this.lastName = data.lastName || null;
+    this.dateOfBirth = data.dateOfBirth || null;
+    
     this.permissions = [];
   }
 }
@@ -12,14 +18,14 @@ class User {
 class AdminUser extends User {
   constructor(data) {
     super(data);
-    this.permissions = ['manage_tours', 'manage_users', 'view_all_bookings'];
+    this.permissions = ['manage_tours', 'manage_users', 'view_all_bookings', 'manage_blog_content'];
   }
 }
 
 class NormalUser extends User {
   constructor(data) {
     super(data);
-    this.permissions = ['view_tours', 'book_tour', 'manage_my_bookings'];
+    this.permissions = ['view_tours', 'book_tour', 'manage_my_bookings', 'submit_reviews'];
   }
 }
 
@@ -30,7 +36,7 @@ class UserFactory {
     } else if (data.role === 'user') {
       return new NormalUser(data);
     } else {
-      throw new Error('Invalid user role provided.');
+      throw new Error('Invalid user role provided.'); 
     }
   }
 }

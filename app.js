@@ -1,7 +1,12 @@
 // app.js
+const dotenv = require('dotenv');
+dotenv.config();
+
+
 const express = require('express');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
+const path = require('path');
+
 const cors = require('cors');
 
 const authRoutes = require('./routes/authRoutes');
@@ -10,9 +15,11 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const customTourRoutes = require('./routes/customTourRoutes');
 
-dotenv.config();
+
 
 const app = express();
+app.use('/img/tours', express.static(path.join(process.cwd(), 'public', 'img', 'tours')));
+
 
 app.use(cors({
   origin: "http://localhost:3000",
