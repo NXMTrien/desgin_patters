@@ -8,7 +8,9 @@ const {  registerUser,
   getAllUsers,
   updateUser,
   checkAdmin,
-verifyEmail, 
+verifyEmail,
+forgotPassword,
+resetPassword, 
   resendVerificationEmail } = require('../controllers/authControllers');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -20,7 +22,9 @@ router.get('/me', protect, getMe);
 router.post('/verify-email', verifyEmail);
 
 router.post('/resend-email', resendVerificationEmail);
-
+// forgotPassword
+router.post('/reset-password', resetPassword);
+router.post('/forgot-password',forgotPassword);
 
 // Lấy danh sách tất cả người dùng
 router.get('/users', protect, checkAdmin, getAllUsers);

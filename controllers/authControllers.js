@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const UserFactory = require('../patterns/UserFactory');
-const { sendVerificationEmail } = require('../utils/emailService');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
 
 const generateOTP = () => {
     // Tạo mã 6 chữ số ngẫu nhiên
@@ -351,5 +351,99 @@ exports.resendVerificationEmail = async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Vui lòng cung cấp email.' });
+        }
+
+       
+        const user = await User.findOne({ email });
+
+        if (!user || !user.isVerified) {
+           
+            return res.status(404).json({ message: 'Không tìm thấy người dùng hoặc tài khoản chưa được xác thực.' });
+        }
+        
+        // 1. Tạo Reset OTP
+        const resetOtpCode = generateOTP(); 
+       
+        const resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000); 
+
+        
+        user.resetPasswordOTP = resetOtpCode;
+        user.resetPasswordExpires = resetOtpExpires;
+
+        
+        await user.save({ validateBeforeSave: false }); 
+        
+       
+        const isEmailSent = await sendPasswordResetEmail(user.email, resetOtpCode); 
+
+        if (!isEmailSent) {
+            console.error(`Lỗi: Không thể gửi email đặt lại mật khẩu cho ${email}.`);
+            return res.status(500).json({ 
+                message: 'Gửi email thất bại: Không thể gửi mã đặt lại mật khẩu. Vui lòng thử lại sau.' 
+            });
+        }
+
+        // 4. Thành công
+        res.status(200).json({
+            message: 'Mã đặt lại mật khẩu (OTP) đã được gửi đến email của bạn. Mã sẽ hết hạn sau 10 phút.',
+            email: user.email,
+        });
+
+    } catch (error) {
+        console.error("Lỗi trong quá trình quên mật khẩu:", error);
+        res.status(500).json({ message: 'Lỗi Server nội bộ: ' + error.message });
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({ message: 'Vui lòng cung cấp Email, Mã OTP và Mật khẩu mới.' });
+        }
+        
+        
+        const user = await User.findOne({ email }).select('+resetPasswordOTP +resetPasswordExpires'); 
+
+        if (!user || !user.isVerified) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng hoặc tài khoản chưa được xác thực.' });
+        }
+
+        // 2. Kiểm tra thời gian hết hạn
+        if (!user.resetPasswordOTP || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) { 
+            return res.status(401).json({ message: 'Mã đặt lại mật khẩu đã hết hạn hoặc không tồn tại. Vui lòng gửi lại yêu cầu.' });
+        }
+
+       
+        if (user.resetPasswordOTP !== otp) {
+            return res.status(401).json({ message: 'Mã đặt lại mật khẩu không hợp lệ.' });
+        }
+        
+        
+        user.password = newPassword; 
+        user.resetPasswordOTP = undefined; 
+        user.resetPasswordExpires = undefined; 
+        
+        await user.save(); 
+
+        // 5. Thành công
+        res.status(200).json({
+            message: 'Đặt lại mật khẩu thành công. Bạn đã có thể đăng nhập bằng mật khẩu mới.',
+        });
+
+    } catch (error) {
+        console.error("Lỗi trong quá trình đặt lại mật khẩu:", error);
+        
+        res.status(400).json({ message: 'Đặt lại mật khẩu thất bại: ' + error.message });
     }
 };

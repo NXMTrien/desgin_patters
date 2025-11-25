@@ -28,11 +28,21 @@ const userSchema = new mongoose.Schema({
         type: Date, 
         select: false
     },
+    resetPasswordOTP: {
+    type: String,
+    select: false
+    },
+    resetPasswordExpires: {
+    type: Date,
+    select: false
+    },
     isVerified: {
         type: Boolean, 
         default: false
     },
-
+    gender:{
+        type:String
+    },
    
     permissions: {
         type: [String], 

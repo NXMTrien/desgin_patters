@@ -1,7 +1,6 @@
 // utils/emailService.js
 const nodemailer = require('nodemailer');
-console.log("DEBUG: EMAIL_USER loaded:", process.env.EMAIL_USER);
-console.log("DEBUG: EMAIL_PASS loaded:", process.env.EMAIL_PASS ? "YES" : "NO");
+
 // 🚨 Lấy thông tin từ biến môi trường
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -42,7 +41,47 @@ const sendVerificationEmail = async (email, otp) => {
         return false;
     }
 };
+const sendPasswordResetEmail = async (email, otp) => {
+    try {
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            // 🚨 Thay đổi Chủ đề email để rõ ràng về mục đích
+            subject: 'Yêu Cầu Đặt Lại Mật Khẩu Tour Du Lịch',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ffcc00; max-width: 600px; background-color: #fff8e1;">
+                    <h2 style="color: #ff9800;">🔔 Đặt Lại Mật Khẩu Tài Khoản</h2>
+                    <p>Chào bạn,</p>
+                    <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+                    <p>Vui lòng sử dụng **MÃ XÁC NHẬN (OTP)** sau để hoàn tất quá trình:</p>
+                    
+                    <h1 style="color: #ff9800; text-align: center; background: #fff3cd; padding: 15px; border: 2px dashed #ffc107; border-radius: 8px; letter-spacing: 3px;">
+                        ${otp}
+                    </h1>
+                    
+                    <p>Mã này sẽ **hết hạn sau 10 phút**. Xin lưu ý, mã này chỉ có thể sử dụng một lần.</p>
+                    
+                    <hr style="border-top: 1px solid #ffcc00;">
+                    
+                    <p style="color: #777;">
+                        Nếu bạn **không** yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này. Tài khoản của bạn vẫn an toàn.
+                    </p>
+                    <p>Trân trọng,<br>Đội ngũ Tour Du Lịch</p>
+                </div>
+            `,
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`Email đặt lại mật khẩu đã gửi: ${info.messageId}`);
+        return true;
+
+    } catch (error) {
+        console.error('Lỗi khi gửi email đặt lại mật khẩu:', error);
+        return false;
+    }
+};
 
 module.exports = {
     sendVerificationEmail,
+    sendPasswordResetEmail,
 };
