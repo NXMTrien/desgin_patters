@@ -12,6 +12,15 @@ const tourSchema = new mongoose.Schema({
     ref: 'Category',
     required: true
   },
+  startLocation: { 
+    type: String, 
+    required: [true, 'Tour phải có điểm khởi hành.'],
+    trim: true 
+  },
+  startDate: { 
+    type: [Date], 
+  required: [true, 'Tour phải có ít nhất một ngày khởi hành.'],
+},
   averageRating: { type: Number, default: 0 },
   maxGroupSize: { type: Number, required: true, min: 1 },
  imageCover: {
