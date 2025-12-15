@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const tourController = require('../controllers/tourControllers');
 const categoryRoutes = require('./categoryRoutes');
+const reviewRouter = require('./reviewRoutes');
 const { protect } = require('../middleware/authMiddleware');
 const { restrictTo } = require('../middleware/permissionMiddleware');
 const imageUpload = require('../middleware/imageUpload');
@@ -11,6 +12,8 @@ const imageUpload = require('../middleware/imageUpload');
 // Public: Người dùng thường có thể xem
 router.get('/', tourController.getAllTours);
 router.get('/:id', tourController.getTour);
+router.use('/:tourId/reviews', reviewRouter);
+
 
 // Admin Only: Yêu cầu Đăng nhập và phải là 'admin'
 router.use(protect, restrictTo(['admin']));

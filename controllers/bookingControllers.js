@@ -3,51 +3,59 @@ const Booking = require('../models/Booking');
 const Tour = require('../models/Tour');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
-const vnpayController = require('./vnpayController');
-const { sendBookingConfirmationEmail } = require('../utils/emailService');
+const paymentController = require('./vnpayController'); 
+const { sendBookingConfirmationEmail,sendBookingCancellationEmail } = require('../utils/emailService');
 const moment = require('moment');
 
-// Đặt Tour
 exports.createBooking = async (req, res) => {
     try {
-        // Lấy method thanh toán từ body, mặc định là 'VNPAY' nếu có bankCode
-        const { tour: tourId, numberOfPeople, startDate, bankCode, language, paymentMethod = 'VNPAY' } = req.body;
+        const { tour: tourId, numberOfPeople, startDate, bankCode, language } = req.body;
         
-        // 1. Lấy thông tin Tour và kiểm tra validation (ngày, số lượng)
+        // 1. Kiểm tra Tour
         const tour = await Tour.findById(tourId);
         if (!tour) return res.status(404).json({ message: 'Tour không tồn tại' });
 
-        // --- Kiểm tra Ngày Khởi Hành Tối Thiểu (5 ngày) ---
+        // 2. Kiểm tra số chỗ trống (Giữ nguyên logic aggregate của bạn)
+        const aggregateBookings = await Booking.aggregate([
+            { 
+                $match: { 
+                    tour: tour._id, 
+                    startDate: new Date(startDate),
+                    status: { $ne: 'cancelled' }
+                } 
+            },
+            { 
+                $group: { 
+                    _id: "$tour", 
+                    totalBooked: { $sum: "$numberOfPeople" } 
+                } 
+            }
+        ]);
+
+        const currentBooked = aggregateBookings.length > 0 ? aggregateBookings[0].totalBooked : 0;
+        const availableSlots = tour.maxGroupSize - currentBooked;
+
+        if (numberOfPeople > availableSlots) {
+            return res.status(400).json({ 
+                status: 'fail', 
+                message: availableSlots <= 0 ? `Xin lỗi, tour vào ngày này đã hết chỗ.` : `Xin lỗi, ngày này chỉ còn lại ${availableSlots} chỗ trống.` 
+            });
+        }
+
+        // 3. Kiểm tra ngày khởi hành (Cách ít nhất 5 ngày)
         const startMoment = moment(startDate);
         const minStartDate = moment().add(5, 'days').startOf('day'); 
-
         if (startMoment.isBefore(minStartDate)) {
-            const minDateDisplay = minStartDate.format('DD/MM/YYYY');
             return res.status(400).json({ 
                 status: 'fail', 
-                message: `Ngày khởi hành phải cách ngày hiện tại ít nhất 5 ngày. Vui lòng chọn ngày từ ${minDateDisplay} trở đi.` 
+                message: `Vui lòng chọn ngày khởi hành từ ${minStartDate.format('DD/MM/YYYY')}.` 
             });
         }
         
-        // Tính Ngày Kết Thúc
-        if (!tour.duration || tour.duration < 1) {
-            return res.status(500).json({ status: 'fail', message: 'Thông tin Tour bị thiếu duration.' });
-        }
         const endDate = moment(startDate).add(tour.duration - 1, 'days').toDate(); 
-        
-        // Kiểm tra Giới Hạn Nhóm
-        const maxGroupSize = tour.maxGroupSize;
-        if (numberOfPeople > maxGroupSize) {
-            return res.status(400).json({ 
-                status: 'fail', 
-                message: `Số lượng người đặt (${numberOfPeople}) đã vượt quá giới hạn của Tour này. Tour chỉ được tối đa ${maxGroupSize} người.` 
-            });
-        }
-
-        // 2. Tính tổng tiền
         const totalPrice = Math.round(tour.price * numberOfPeople);
         
-        // 3. TẠO BOOKING (Trạng thái chờ thanh toán)
+        // 4. TẠO BOOKING TRƯỚC
         const newBooking = await Booking.create({
             tour: tourId,
             user: req.user.id,
@@ -55,83 +63,64 @@ exports.createBooking = async (req, res) => {
             startDate,
             endDate,
             totalPrice, 
-            status: 'pending_payment' // Trạng thái chờ thanh toán
+            status: 'pending_payment'
         });
 
-        // 4. TẠO PAYMENT PENDING CHO GIAO DỊCH VNPAY
+        // 5. TẠO PAYMENT PENDING
         const payment = await Payment.create({
             booking: newBooking._id,
-            method: 'VNPAY', // Giả định VNPAY là phương thức mặc định nếu có bankCode
-            status: 'pending', // Trạng thái chờ cổng thanh toán xác nhận
+            method: 'VNPAY',
+            status: 'pending',
             amount: totalPrice
         });
-        
-        // 5. Chuẩn bị tạo VNPAY URL
+
+        // 6. TẠO VNPAY URL (Nếu có bankCode)
         let vnpUrl = null;
-        try {
-            // Chỉ gọi VNPAY khi có yêu cầu chuyển khoản VNPAY (bankCode được cung cấp từ Frontend)
-            if (bankCode) { 
-                 const vnpayReqData = {
+        if (bankCode) {
+            try {
+                const vnpayReqData = {
                     bookingId: newBooking._id.toString(),
                     amount: totalPrice,
-                    req: { headers: req.headers, socket: req.socket }, // Truyền thông tin req cần thiết cho IP
+                    req: { headers: req.headers, socket: req.socket },
                     bankCode: bankCode,
                     language: language || 'vn'
                 };
-                
-                // Sử dụng hàm logic VNPAY từ paymentController
                 vnpUrl = await paymentController.createVnpayUrlLogic(vnpayReqData);
-
-                if (!vnpUrl) throw new Error("VNPAY URL generation failed.");
-                
-                // 🚨 GỬI EMAIL THÔNG BÁO (NÊN LÀM SAU KHI CÓ VNPAY URL)
-                const bookingWithDetails = await Booking.findById(newBooking._id)
-                    .populate({ path: 'user', select: 'email' })
-                    .populate({ path: 'tour', select: 'title' }); 
-                    
-                await sendBookingConfirmationEmail(
-                    bookingWithDetails.user.email, 
-                    bookingWithDetails, 
-                    bookingWithDetails.tour.title, 
-                    vnpUrl
-                );
-                console.log(`✅ Email xác nhận Booking và nhắc nhở thanh toán VNPAY đã gửi.`);
-
-                // 6. Trả về VNPAY URL để Frontend Redirect
-                return res.status(201).json({
-                    status: 'success',
-                    message: 'Booking đã tạo, chuyển sang thanh toán VNPAY.',
-                    bookingId: newBooking._id,
-                    paymentId: payment._id, // Trả về paymentId
-                    vnpUrl: vnpUrl // URL thanh toán VNPAY
-                });
-
-            } else {
-                // 7. Nếu không có bankCode (người dùng chưa chọn phương thức), trả về Booking/Payment ID
-                return res.status(201).json({
-                    status: 'success',
-                    message: 'Booking đã tạo, vui lòng chọn phương thức thanh toán.',
-                    bookingId: newBooking._id,
-                    paymentId: payment._id, // Trả về paymentId
-                    vnpUrl: null // Không có redirect ngay lập tức
-                });
+            } catch (vnpayError) {
+                console.error("Lỗi tạo VNPAY URL:", vnpayError.message);
+                // Không xóa booking ở đây, để user có thể thanh toán lại sau trong trang My Bookings
             }
-            
-        } catch (vnpayError) {
-            // 🚨 Xử lý lỗi VNPAY: Xóa cả Booking và Payment vừa tạo
-            console.error("Lỗi khi tạo VNPAY URL (Sẽ xóa Booking và Payment):", vnpayError.message);
-            await Booking.findByIdAndDelete(newBooking._id);
-            await Payment.findByIdAndDelete(payment._id);
-            
-            return res.status(500).json({ 
-                status: 'fail', 
-                message: 'Đặt tour thành công, nhưng không thể tạo liên kết thanh toán VNPAY. Vui lòng thử lại.' 
-            });
         }
 
+        // 7. GỬI EMAIL XÁC NHẬN (ĐƯA RA NGOÀI ĐỂ LUÔN CHẠY)
+        // Lấy đầy đủ thông tin để email hiển thị đẹp
+        const bookingWithDetails = await Booking.findById(newBooking._id)
+            .populate('user', 'email username')
+            .populate('tour', 'title');
+
+        try {
+            await sendBookingConfirmationEmail(
+                bookingWithDetails.user.email, 
+                bookingWithDetails, 
+                bookingWithDetails.tour.title, 
+                vnpUrl // Nếu không có bankCode, vnpUrl sẽ là null
+            );
+            console.log(`✅ Email xác nhận đã gửi tới: ${bookingWithDetails.user.email}`);
+        } catch (emailErr) {
+            console.error("🚨 Lỗi gửi email (Nhưng vẫn giữ Booking):", emailErr.message);
+        }
+
+        // 8. PHẢN HỒI CHO FRONTEND
+        res.status(201).json({
+            status: 'success',
+            message: vnpUrl ? 'Chuyển sang thanh toán VNPAY.' : 'Đặt tour thành công, vui lòng kiểm tra email.',
+            bookingId: newBooking._id,
+            vnpUrl: vnpUrl
+        });
+
     } catch (error) {
-        console.error("Lỗi đặt Tour:", error.message, error.stack);
-        res.status(400).json({ status: 'fail', message: error.message });
+        console.error("Lỗi hệ thống createBooking:", error.message);
+        res.status(500).json({ status: 'fail', message: "Có lỗi xảy ra, vui lòng thử lại sau." });
     }
 };
 // Xem các Booking của cá nhân (Giữ nguyên)
@@ -147,6 +136,57 @@ exports.getMyBookings = async (req, res) => {
   }
 };
 
+// Hủy Booking
+exports.cancelBooking = async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+        
+        // 1. Tìm booking và kiểm tra quyền sở hữu (hoặc là Admin)
+        const booking = await Booking.findById(bookingId)
+            .populate('user', 'email username')
+            .populate('tour', 'title');
+
+        if (!booking) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn đặt tour.' });
+        }
+
+        // Kiểm tra nếu không phải chủ nhân của booking hoặc không phải admin
+        if (booking.user._id.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Bạn không có quyền hủy đơn này.' });
+        }
+
+        // 2. Kiểm tra trạng thái (Chỉ cho phép hủy nếu chưa hoàn thành hoặc chưa bị hủy)
+        if (booking.status === 'cancelled') {
+            return res.status(400).json({ message: 'Đơn này đã được hủy trước đó.' });
+        }
+
+        // 3. Cập nhật trạng thái
+        booking.status = 'cancelled';
+        await booking.save();
+
+        // 4. Gửi email thông báo hủy
+        try {
+            // Bạn cần thêm hàm này vào emailService.js (hướng dẫn ở bước dưới)
+            await sendBookingCancellationEmail(
+                booking.user.email,
+                booking,
+                booking.tour.title
+            );
+            console.log(`✅ Email thông báo hủy đã gửi tới: ${booking.user.email}`);
+        } catch (emailErr) {
+            console.error("🚨 Lỗi gửi email hủy:", emailErr.message);
+        }
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Hủy đơn đặt tour thành công.'
+        });
+
+    } catch (error) {
+        console.error("Lỗi khi hủy booking:", error.message);
+        res.status(500).json({ status: 'fail', message: error.message });
+    }
+};
 // ADMIN: Xem tất cả bookings (Giữ nguyên)
 exports.getAllBookings = async (req, res) => {
   try {
@@ -156,3 +196,4 @@ exports.getAllBookings = async (req, res) => {
     res.status(500).json({ status: 'fail', message: error.message });
   }
 };
+
