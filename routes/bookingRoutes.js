@@ -14,6 +14,8 @@ router.post('/', protect, bookingController.createBooking);
 router.get('/my-bookings', protect, bookingController.getMyBookings);
 
 router.get('/all', protect, bookingController.getAllBookings);
+
+router.patch('/cancel/:id', bookingController.cancelBooking);
 // Admin Only
 router.get('/', restrictTo(['admin']), bookingController.getAllBookings);
 

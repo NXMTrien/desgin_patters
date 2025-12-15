@@ -188,10 +188,66 @@ const sendPaymentConfirmationEmail = async (email, bookingDetails, tourTitle) =>
         return false;
     }
 };
+const sendBookingCancellationEmail = async (email, booking, tourTitle) => {
+    
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: `[THÔNG BÁO] Xác nhận hủy đặt tour: ${tourTitle}`,
+        html: `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+                <div style="background-color: #ef7470ff; color: white; padding: 20px; text-align: center;">
+                    <h1 style="margin: 0; font-size: 24px;">Hủy Đặt Tour Thành Công</h1>
+                </div>
+                
+                <div style="padding: 20px; color: #333; line-height: 1.6;">
+                    <p>Chào <b>${booking.user.username || 'Quý khách'}</b>,</p>
+                    <p>Chúng tôi xác nhận yêu cầu hủy tour của bạn đã được xử lý thành công trên hệ thống của <b>Phú Quốc Travel</b>.</p>
+                    
+                    <div style="background-color: #f8f9fa; border-radius: 5px; padding: 15px; margin: 20px 0; border-left: 5px solid #d9534f;">
+                        <h3 style="margin-top: 0; color: #d9534f;">Chi tiết đơn đã hủy:</h3>
+                        <p style="margin: 5px 0;"><b>Mã đơn hàng:</b> ${booking._id}</p>
+                        <p style="margin: 5px 0;"><b>Tên tour:</b> ${tourTitle}</p>
+                        <p style="margin: 5px 0;"><b>Ngày khởi hành:</b> ${new Date(booking.startDate).toLocaleDateString('vi-VN')}</p>
+                        <p style="margin: 5px 0;"><b>Số người:</b> ${booking.numberOfPeople}</p>
+                        <p style="margin: 5px 0;"><b>Tổng tiền:</b> ${booking.totalPrice.toLocaleString()} VNĐ</p>
+                    </div>
+
+                    <p>Nếu bạn đã thực hiện thanh toán trước đó, bộ phận kế toán sẽ kiểm tra và tiến hành hoàn tiền (nếu có) theo chính sách của chúng tôi trong vòng 3-5 ngày làm việc.</p>
+                    
+                    <p>Hy vọng sẽ được phục vụ bạn trong những chuyến hành trình sắp tới!</p>
+                    
+                    <div style="text-align: center; margin-top: 30px;">
+                        <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" 
+                           style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                           Tiếp tục khám phá Tour
+                        </a>
+                    </div>
+                </div>
+
+                <div style="background-color: #f1f1f1; color: #777; padding: 15px; text-align: center; font-size: 12px;">
+                    <p>© 2025 Phú Quốc Travel. Tất cả quyền được bảo lưu.<br>
+                    Địa chỉ: Dương Đông, Phú Quốc, Kiên Giang</p>
+                </div>
+            </div>
+        `
+    };
+
+    // 2. Thực hiện gửi mail (Sử dụng transporter đã khai báo ở đầu file)
+    try {
+        // Lưu ý: Biến 'transporter' phải được định nghĩa ở phạm vi global của file này
+        await transporter.sendMail(mailOptions);
+        return true;
+    } catch (error) {
+        console.error("Lỗi gửi email hủy tour:", error);
+        throw new Error("Không thể gửi email thông báo hủy.");
+    }
+};
 
 module.exports = {
     sendVerificationEmail,
     sendPasswordResetEmail,
     sendBookingConfirmationEmail,
     sendPaymentConfirmationEmail,
+   sendBookingCancellationEmail,
 };
