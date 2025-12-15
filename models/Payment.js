@@ -17,8 +17,8 @@ const paymentSchema = new mongoose.Schema({
         type: String,
         required: true,
         
-        enum: ['cash', 'transfer', 'bank', 'momo', 'zalopay', 'other', 'VNPAY'], 
-        default: 'transfer'
+        enum: ['pending', 'transfer', 'successful', 'failed', 'awaiting_confirmation','VNPAY'],
+        default: 'pending'
     },
     
     // Status (Trạng thái thanh toán)
@@ -26,7 +26,7 @@ const paymentSchema = new mongoose.Schema({
         type: String,
         required: true,
         
-        enum: ['pending', 'successful', 'failed', 'refunded'],
+        enum: ['pending', 'successful', 'failed', 'awaiting_confirmation'],
         default: 'pending'
     },
     

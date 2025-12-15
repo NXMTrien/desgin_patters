@@ -15,6 +15,7 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const customTourRoutes = require('./routes/customTourRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const blogRouter = require('./routes/blogRoutes');
 
 
 
@@ -24,7 +25,7 @@ app.use('/img/tours', express.static(path.join(process.cwd(), 'public', 'img', '
 
 app.use(cors({
   origin: "http://localhost:3000",
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PATCH","PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
@@ -43,6 +44,7 @@ app.use('/api/tours', tourRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/custom-tours', customTourRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/blogs', blogRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
