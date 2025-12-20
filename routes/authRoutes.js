@@ -5,8 +5,10 @@ const {  registerUser,
   loginUser,
   logoutUser,
   getMe,
+  googleLogin,
   getAllUsers,
   updateUser,
+  updateMe,
   checkAdmin,
 verifyEmail,
 forgotPassword,
@@ -18,6 +20,7 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/logout', logoutUser);
 router.get('/me', protect, getMe);
+router.post('/google-login', googleLogin);
 
 router.post('/verify-email', verifyEmail);
 
@@ -29,7 +32,7 @@ router.post('/forgot-password',forgotPassword);
 // Lấy danh sách tất cả người dùng
 router.get('/users', protect, checkAdmin, getAllUsers);
 
-
+router.patch('/update-me', protect, updateMe);
 // Cập nhật người dùng (role hoặc block)
 router.put('/users/:id', protect, checkAdmin, updateUser);
 

@@ -47,7 +47,8 @@ const userSchema = new mongoose.Schema({
     permissions: {
         type: [String], 
         default: ['view_tours'], 
-    }
+    },
+    googleId: { type: String, unique: true, sparse: true },
   
 }, { timestamps: true });
 
