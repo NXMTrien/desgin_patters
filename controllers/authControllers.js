@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const UserFactory = require('../patterns/UserFactory');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateOTP = () => {
     // Tạo mã 6 chữ số ngẫu nhiên
@@ -89,28 +91,75 @@ exports.updateUser = async (req, res) => {
         res.status(400).json({ message: error.message });
     }
 };
+exports.updateMe = async (req, res) => {
+    try {
+        // 1. Lấy dữ liệu từ body (Chỉ cho phép sửa các trường này)
+        const { phone, address, dateOfBirth } = req.body;
+        
+        // 2. Tạo đối tượng chứa các trường cần cập nhật
+        const updateFields = {};
+        if (phone !== undefined) updateFields.phone = phone;
+        if (address !== undefined) updateFields.address = address;
+        if (dateOfBirth !== undefined) updateFields.dateOfBirth = dateOfBirth;
+
+        // Kiểm tra nếu không có dữ liệu nào được gửi lên
+        if (Object.keys(updateFields).length === 0) {
+            return res.status(400).json({ message: 'Không có thông tin nào để cập nhật.' });
+        }
+
+        // 3. Thực hiện cập nhật dựa trên ID của người dùng đang đăng nhập (req.user.id)
+        // Chúng ta lấy ID từ token (middleware protect đã gán vào req.user) để đảm bảo an toàn
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user.id, 
+            updateFields, 
+            { 
+                new: true,           // Trả về bản ghi mới nhất
+                runValidators: true  // Kiểm tra ràng buộc dữ liệu (vd: định dạng số điện thoại)
+            }
+        ).select('-password');
+
+        if (!updatedUser) {
+            return res.status(404).json({ message: 'Người dùng không tồn tại.' });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Cập nhật thông tin cá nhân thành công',
+            user: updatedUser
+        });
+
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
 
 exports.registerUser = async (req, res) => {
     try {
-        
         const { 
-            username, email, password, phone, address, 
-            dateOfBirth 
+            username, email, password, confirmPassword, // 1. Lấy confirmPassword từ req.body
+            phone, address, dateOfBirth 
         } = req.body;
-        
-        // 2. Kiểm tra Trùng lặp Email/Username (Kiểm tra cả verified và unverified)
+
+        // --- MỚI: KIỂM TRA XÁC NHẬN MẬT KHẨU ---
+        if (!confirmPassword) {
+            return res.status(400).json({ message: 'Vui lòng xác nhận mật khẩu.' });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({ message: 'Mật khẩu xác nhận không khớp. Vui lòng thử lại.' });
+        }
+        // ---------------------------------------
+
+        // 2. Kiểm tra Trùng lặp Email/Username (Giữ nguyên)
         const existingUser = await User.findOne({ $or: [{ email }, { username }] });
         if (existingUser) {
-             // Nếu user đã tồn tại, kiểm tra xem đã xác thực chưa
              if (!existingUser.isVerified) {
-                 // Nếu chưa xác thực, cho phép họ sử dụng /resend-email
                  return res.status(400).json({ 
                      message: `Tài khoản với email ${email} đang chờ xác thực. Vui lòng kiểm tra email hoặc nhấn 'Gửi lại mã'.`,
                      email: email 
                  });
              }
              
-             // Nếu đã xác thực, báo lỗi trùng lặp thông thường
              if (existingUser.email === email) {
                  return res.status(409).json({ message: 'Email này đã được đăng ký. Vui lòng sử dụng email khác.' });
              }
@@ -119,8 +168,7 @@ exports.registerUser = async (req, res) => {
              }
         }
         
-        // 3. Kiểm tra Ràng buộc Tuổi tối thiểu (>= 18)
-        // ... (Logic kiểm tra tuổi giữ nguyên) ...
+        // 3. Kiểm tra Ràng buộc Tuổi tối thiểu (Giữ nguyên)
         if (!dateOfBirth) {
             return res.status(400).json({ message: 'Vui lòng cung cấp Ngày sinh (dateOfBirth).' });
         }
@@ -136,48 +184,38 @@ exports.registerUser = async (req, res) => {
             return res.status(403).json({ message: `Bạn phải đủ ${MINIMUM_AGE} tuổi trở lên để đăng ký tài khoản.` });
         }
         
-        // 4. Chuẩn bị cho Xác thực Email OTP
-        // 🚨 SỬA LỖI ĐỒNG NHẤT: Đổi tên biến local cho rõ ràng và nhất quán
+        // 4. Chuẩn bị OTP (Giữ nguyên)
         const otpCode = generateOTP(); 
-        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // Hết hạn sau 10 phút
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); 
 
         // 5. Gán Role mặc định
         let { role } = req.body;
-        if (!role) {
-            role = 'user'; 
-        }
+        if (!role) { role = 'user'; }
 
-        // 6. Tạo đối tượng người dùng qua Factory Pattern
+        // 6. Tạo đối tượng qua Factory Pattern
+        // Lưu ý: confirmPassword không được đưa vào đây
         const userData = { username, email, role, phone, address, dateOfBirth };
-        const newUser = UserFactory.createUser(userData);
+        const newUserData = UserFactory.createUser(userData);
         
         // 7. Tạo đối tượng Mongoose
         const user = new User({ 
-            ...newUser, 
-            password,
-            permissions: newUser.permissions,
+            ...newUserData, 
+            password, // Password sẽ được hash bởi middleware trong Schema (nếu có)
             phone: phone || null, 
             address: address || null,
             dateOfBirth: dateOfBirth || null,
-            
-            isVerified: false, // Chưa xác thực
-            // 🚨 SỬA LỖI ĐỒNG NHẤT: Lưu mã và thời gian hết hạn bằng các trường 'otp' và 'otpExpires' 
+            isVerified: false,
             otp: otpCode,
             otpExpires: otpExpires,
-            // ----------------------------------------------------------------------------------------
         });
         
-        // LƯU TẠM THỜI VÀO DB ĐỂ CÓ ID VÀ PASSWORD HASHED
-        await user.save();
+        await user.save(); // confirmPassword hoàn toàn không tồn tại trong object này nên không thể lưu vào DB
         
         // 8. GỬI EMAIL XÁC THỰC
-        const isEmailSent = await sendVerificationEmail(email, otpCode); // Gửi mã OTP
+        const isEmailSent = await sendVerificationEmail(email, otpCode);
 
         if (!isEmailSent) {
-            console.error(`Lỗi: Không thể gửi email cho ${email}. Xóa người dùng chưa xác thực.`);
-            // 🚨 XÓA NGƯỜI DÙNG NẾU GỬI EMAIL THẤT BẠI
             await User.findByIdAndDelete(user._id); 
-            
             return res.status(500).json({ 
                 message: 'Đăng ký thất bại: Không thể gửi mã xác thực. Vui lòng thử lại sau.' 
             });
@@ -189,10 +227,8 @@ exports.registerUser = async (req, res) => {
             _id: user._id,
             username: user.username,
             email: user.email,
-            isVerified: user.isVerified 
         });
     } catch (error) {
-        // Xử lý các lỗi khác (ví dụ: lỗi DB, lỗi validation...)
         res.status(400).json({ message: error.message });
     }
 };
@@ -235,17 +271,27 @@ exports.logoutUser = (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 };
 
-exports.getMe = (req, res) => {
-  // Lấy thông tin người dùng từ token đã giải mã
-  const { user } = req;
-  const userInstance = UserFactory.createUser({ ...user._doc, role: user.role });
-  res.json({
-    _id: user._id,
-    username: user.username,
-    email: user.email,
-    role: user.role,
-    permissions: userInstance.permissions
-  });
+exports.getMe = async (req, res) => {
+  try {
+    // req.user.id lấy từ middleware protect
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const userInstance = UserFactory.createUser({ ...user._doc, role: user.role });
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+      dateOfBirth: user.dateOfBirth,
+      role: user.role,
+      permissions: userInstance.permissions
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 exports.verifyEmail = async (req, res) => {
@@ -445,5 +491,74 @@ exports.resetPassword = async (req, res) => {
         console.error("Lỗi trong quá trình đặt lại mật khẩu:", error);
         
         res.status(400).json({ message: 'Đặt lại mật khẩu thất bại: ' + error.message });
+    }
+};
+
+exports.googleLogin = async (req, res) => {
+    try {
+        const { idToken } = req.body;
+
+        if (!idToken) {
+            return res.status(400).json({ message: "Thiếu mã xác thực Google (idToken)." });
+        }
+
+        // 1. Xác thực Token với Google
+        const ticket = await client.verifyIdToken({
+            idToken,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const { email, name, picture, sub: googleId } = payload;
+
+        // 2. Tìm kiếm người dùng trong Database
+        let user = await User.findOne({ email });
+
+        if (!user) {
+            // 3. Nếu chưa có, tạo mới qua Factory Pattern
+            // Google đã xác thực email này rồi nên set isVerified = true
+            const userData = { 
+                username: name, 
+                email, 
+                role: 'user', // Mặc định là user
+                isVerified: true 
+            };
+            
+            const newUserData = UserFactory.createUser(userData);
+            
+            user = new User({
+                ...newUserData,
+                googleId: googleId,
+                avatar: picture, // Lưu ảnh đại diện từ Google
+                password: Math.random().toString(36).slice(-10) + "Aa1!", // Mật khẩu ngẫu nhiên cho đủ Schema
+                isVerified: true
+            });
+
+            await user.save();
+        }
+
+        // 4. Kiểm tra xem tài khoản có bị khóa không (nếu có logic isBlocked)
+        if (user.isBlocked) {
+            return res.status(403).json({ message: "Tài khoản của bạn đã bị khóa." });
+        }
+
+        // 5. Tạo Token hệ thống và trả về kết quả (Giống logic loginUser của bạn)
+        const userInstance = UserFactory.createUser({ ...user._doc, role: user.role });
+        const token = generateToken(user._id, user.role);
+
+        res.status(200).json({
+            message: 'Đăng nhập Google thành công',
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            avatar: user.avatar,
+            permissions: userInstance.permissions,
+            token,
+        });
+
+    } catch (error) {
+        console.error("Google Login Error:", error);
+        res.status(401).json({ message: "Xác thực Google thất bại hoặc mã đã hết hạn." });
     }
 };
