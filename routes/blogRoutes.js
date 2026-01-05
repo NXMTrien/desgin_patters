@@ -11,7 +11,7 @@ router.use(protect, checkAdmin);
 
 // --- ROUTE CÔNG KHAI (GET) ---
 // Route: GET /api/blogs
-router.get('/', blogController.getAllBlogs); // Dòng 16 (Dòng gây lỗi nếu trước đó bạn viết sai)
+router.get('/', blogController.getAllBlogs); 
 
 router.get('/by-tour/:tourId', blogController.getBlogByTourId);
 
@@ -27,7 +27,7 @@ router.post(
 
 // Route chi tiết theo ID
 router.route('/:id')
-  // .get(blogController.getBlog) // Giả sử bạn có getBlog
+  
   // PATCH /api/blogs/:id
   .patch(
     // authController.protect, 

@@ -90,12 +90,69 @@ exports.updateTour = async (req, res) => {
   }
 };
 
+
 exports.deleteTour = async (req, res) => {
   try {
-    const tour = await decoratedTourService.deleteTour(req.params.id);
-    if (!tour) return res.status(404).json({ status: 'fail', message: 'Không tìm thấy tour.' });
-    res.status(204).json({ status: 'success', data: null }); // 204 No Content
+    // 1. Tìm tour trong database dựa trên ID từ params
+    const tour = await Tour.findById(req.params.id);
+
+    // 2. Kiểm tra xem tour có tồn tại hay không
+    if (!tour) {
+     
+      return res.status(404).json({ 
+        status: 'fail', 
+        message: 'Không tìm thấy tour để xóa.' 
+      });
+    }
+
+    // 3. KIỂM TRA ĐIỀU KIỆN: Nếu tour có ngày khởi hành (startDates)
+    // Lưu ý: Tên trường trong Model của bạn có thể là startDates hoặc startDate, hãy kiểm tra lại nhé.
+    const hasDates = (tour.startDate && tour.startDate.length > 0) ;
+
+    if (hasDates) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Tour này đã có ngày khởi hành. Vui lòng xóa hết các ngày này trước khi xóa tour!'
+      });
+    }
+
+    // 4. Nếu hợp lệ (không có ngày đi), thực hiện xóa
+    await Tour.findByIdAndDelete(req.params.id);
+
+    // 5. Trả về phản hồi thành công (204 No Content)
+    res.status(204).json({ 
+      status: 'success', 
+      data: null 
+    }); 
+
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    // Xử lý các lỗi hệ thống hoặc lỗi ép kiểu ID
+    res.status(400).json({ 
+      status: 'fail', 
+      message: error.message 
+    });
+  }
+};
+
+exports.getTop5Rated = async (req, res) => {
+  try {
+   const tours = await Tour.find({ 
+      averageRating: { $gt: 3 }, 
+     
+    })
+    .sort({ averageRating: -1 }) 
+    .limit(4);
+
+    // 2. Trả về kết quả
+    res.status(200).json({
+      status: 'success',
+      results: tours.length,
+      data: { tours }
+    });
+  } catch (error) {
+    res.status(400).json({ 
+      status: 'fail', 
+      message: error.message 
+    });
   }
 };
