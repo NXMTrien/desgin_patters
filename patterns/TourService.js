@@ -49,7 +49,15 @@ class TourService extends ITourService {
   }
 
   async deleteTour(id) {
-    return this.Tour.findByIdAndDelete(id);
+    const tour = await Tour.findById(id);
+
+    if (!tour) return null;
+
+  
+    if (tour.startDates && tour.startDates.length > 0) {
+        throw new Error('Không thể xóa tour vì đã có ngày khởi hành được thiết lập. Vui lòng xóa các ngày khởi hành trước.');
+    }
+    return await Tour.findByIdAndDelete(id);
   }
 }
 

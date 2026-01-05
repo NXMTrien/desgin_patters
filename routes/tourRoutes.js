@@ -11,8 +11,10 @@ const imageUpload = require('../middleware/imageUpload');
 
 // Public: Người dùng thường có thể xem
 router.get('/', tourController.getAllTours);
+router.get('/top-5-rated', tourController.getTop5Rated);
 router.get('/:id', tourController.getTour);
 router.use('/:tourId/reviews', reviewRouter);
+
 
 
 // Admin Only: Yêu cầu Đăng nhập và phải là 'admin'

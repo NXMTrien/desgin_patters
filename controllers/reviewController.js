@@ -24,7 +24,7 @@ exports.createReview = async (req, res) => {
   }
 };
 
-// 2. Lấy tất cả đánh giá của một Tour
+
 exports.getAllReviewsByTour = async (req, res) => {
   try {
     let filter = {};
@@ -43,3 +43,4 @@ exports.getAllReviewsByTour = async (req, res) => {
     res.status(400).json({ status: 'fail', message: error.message });
   }
 };
+
