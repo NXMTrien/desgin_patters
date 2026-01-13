@@ -31,8 +31,8 @@ const reviewSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Đảm bảo mỗi user chỉ được review 1 tour duy nhất 1 lần
-reviewSchema.index({ tour: 1, user: 1 }, { unique: true });
+// // Đảm bảo mỗi user chỉ được review 1 tour duy nhất 1 lần
+// reviewSchema.index({ tour: 1, user: 1 }, { unique: true });
 
 // --- ĐOẠN CODE THÊM MỚI: TÍNH TOÁN RATING ---
 
