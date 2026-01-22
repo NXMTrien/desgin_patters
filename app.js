@@ -17,6 +17,7 @@ const customTourRoutes = require('./routes/customTourRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const blogRouter = require('./routes/blogRoutes');
 const reviewRouter = require('./routes/reviewRoutes');
+const contactRouter = require ('./routes/contactRoutes');
 
 
 
@@ -48,6 +49,8 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/blogs', blogRouter);
 app.use('/api/tours/:tourId/reviews', reviewRouter);
 app.use('/api/reviews', reviewRouter);
+app.use('/api/contacts', contactRouter);
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
