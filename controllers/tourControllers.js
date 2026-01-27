@@ -66,21 +66,17 @@ exports.updateTour = async (req, res) => {
   try {
     let tourData = { ...req.body };
 
-    // XỬ LÝ startDate: Đảm bảo luôn là mảng chuẩn trước khi vào Database
-    if (tourData.startDate) {
-      // Trường hợp 1: Multer nhận nhiều giá trị cùng key -> trả về mảng ['2025-12-20', '2025-12-25'] -> OK
-      // Trường hợp 2: Gửi lên 1 chuỗi dính "2025-12-20,2025-12-25" -> Cần split
+    // Nếu field startDate tồn tại trong request (kể cả rỗng)
+    if (req.body.startDate !== undefined) {
       if (typeof tourData.startDate === 'string') {
-        tourData.startDate = tourData.startDate.split(',').map(d => d.trim());
+        // Nếu là chuỗi rỗng sau khi xóa hết badge
+        tourData.startDate = tourData.startDate ? tourData.startDate.split(',').map(d => d.trim()) : [];
       } 
-      // Trường hợp 3: Mảng chứa 1 chuỗi dính ['2025-12-20,2025-12-25']
-      else if (Array.isArray(tourData.startDate) && tourData.startDate.length === 1) {
-        if (tourData.startDate[0].includes(',')) {
-          tourData.startDate = tourData.startDate[0].split(',').map(d => d.trim());
-        }
+      else if (Array.isArray(tourData.startDate)) {
+        // Lọc bỏ các giá trị null/undefined/chuỗi rỗng
+        tourData.startDate = tourData.startDate.filter(d => d && d.trim() !== "");
       }
     }
-
     const tour = await decoratedTourService.updateTour(req.params.id, tourData);
     if (!tour) return res.status(404).json({ status: 'fail', message: 'Không tìm thấy tour.' });
     
@@ -91,47 +87,35 @@ exports.updateTour = async (req, res) => {
 };
 
 
-exports.deleteTour = async (req, res) => {
-  try {
-    // 1. Tìm tour trong database dựa trên ID từ params
-    const tour = await Tour.findById(req.params.id);
+exports.deleteTour = async (req, res, next) => {
+    try {
+        const tourId = req.params.id;
 
-    // 2. Kiểm tra xem tour có tồn tại hay không
-    if (!tour) {
-     
-      return res.status(404).json({ 
-        status: 'fail', 
-        message: 'Không tìm thấy tour để xóa.' 
-      });
+        // 1. Tìm tour để kiểm tra sự tồn tại và điều kiện startDate
+        const tour = await Tour.findById(tourId);
+
+        if (!tour) {
+            return res.status(404).json({ message: "Không tìm thấy tour này!" });
+        }
+
+        // 2. Kiểm tra logic chặn: Nếu còn ngày khởi hành thì không cho xóa
+        // Lưu ý: startDate phải được xóa hết ở bước Edit trước đó
+        if (tour.startDate && tour.startDate.length > 0) {
+            return res.status(400).json({ 
+                message: "Không thể xóa! Tour vẫn còn lịch khởi hành. Vui lòng vào Chỉnh sửa để xóa hết ngày trước." 
+            });
+        }
+
+        // 3. THỰC HIỆN XÓA THỰC SỰ TRONG DATABASE
+        await Tour.findByIdAndDelete(tourId);
+
+        res.status(200).json({
+            status: "success",
+            message: "Xóa tour thành công khỏi cơ sở dữ liệu!"
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Lỗi hệ thống khi xóa tour: " + err.message });
     }
-
-    // 3. KIỂM TRA ĐIỀU KIỆN: Nếu tour có ngày khởi hành (startDates)
-    // Lưu ý: Tên trường trong Model của bạn có thể là startDates hoặc startDate, hãy kiểm tra lại nhé.
-    const hasDates = (tour.startDate && tour.startDate.length > 0) ;
-
-    if (hasDates) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Tour này đã có ngày khởi hành. Vui lòng xóa hết các ngày này trước khi xóa tour!'
-      });
-    }
-
-    // 4. Nếu hợp lệ (không có ngày đi), thực hiện xóa
-    await Tour.findByIdAndDelete(req.params.id);
-
-    // 5. Trả về phản hồi thành công (204 No Content)
-    res.status(204).json({ 
-      status: 'success', 
-      data: null 
-    }); 
-
-  } catch (error) {
-    // Xử lý các lỗi hệ thống hoặc lỗi ép kiểu ID
-    res.status(400).json({ 
-      status: 'fail', 
-      message: error.message 
-    });
-  }
 };
 
 exports.getTop5Rated = async (req, res) => {
