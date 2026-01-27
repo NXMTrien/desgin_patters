@@ -14,21 +14,18 @@ const blogSchema = new mongoose.Schema({
     },
     // Chuyển Description thành một Object chứa 3 phần con
     description: {
-        type: {
-            detail: {
-                type: String,
-                required: [true, 'Phần mô tả chi tiết là bắt buộc.'],
-            },
-            attractions: {
-                type: String, // Có thể lưu dưới dạng JSON String/Array hoặc String lớn
-                required: [true, 'Danh sách tham quan là bắt buộc.'],
-            },
-            meaningful_description: {
-                type: String,
-                required: [true, 'Phần mô tả chuyến đi ý nghĩa là bắt buộc.'],
-            },
+        detail: {
+            type: String,
+            required: [true, 'Phần mô tả chi tiết là bắt buộc.'],
         },
-        required: [true, 'Nội dung Blog là bắt buộc.'],
+        attractions: {
+            type: String, // Giữ nguyên String vì Frontend đang dùng .join(" | ")
+            required: [true, 'Danh sách tham quan là bắt buộc.'],
+        },
+        meaningful_description: {
+            type: String,
+            required: [true, 'Phần mô tả chuyến đi ý nghĩa là bắt buộc.'],
+        },
     },
     createdAt: {
         type: Date,

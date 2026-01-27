@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Tour = require('./Tour'); // Import Model Tour để cập nhật điểm
+const Tour = require('./Tour'); // Hãy đảm bảo đường dẫn này chính xác
 
 const reviewSchema = new mongoose.Schema({
   tour: {
@@ -31,12 +31,11 @@ const reviewSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// // Đảm bảo mỗi user chỉ được review 1 tour duy nhất 1 lần
+// Đảm bảo mỗi user chỉ được review 1 tour duy nhất 1 lần (Nên mở comment nếu cần)
 // reviewSchema.index({ tour: 1, user: 1 }, { unique: true });
 
-// --- ĐOẠN CODE THÊM MỚI: TÍNH TOÁN RATING ---
+// --- TÍNH TOÁN RATING ---
 
-// 1. Hàm Static để tính trung bình cộng
 reviewSchema.statics.calcAverageRatings = async function(tourId) {
   const stats = await this.aggregate([
     { $match: { tour: tourId } },
@@ -50,21 +49,33 @@ reviewSchema.statics.calcAverageRatings = async function(tourId) {
   ]);
 
   if (stats.length > 0) {
-    // SỬA TẠI ĐÂY: Dùng đúng tên 'averageRating' như trong Tour.js của bạn
     await Tour.findByIdAndUpdate(tourId, {
-      averageRating: stats[0].avgRating
+      // Làm tròn 1 chữ số thập phân (VD: 4.666 -> 4.7) để frontend hiển thị đẹp
+      ratingsQuantity: stats[0].nRating,
+      averageRating: Math.round(stats[0].avgRating * 10) / 10 
+      
     });
   } else {
     await Tour.findByIdAndUpdate(tourId, {
-      averageRating: 0 // Reset về 0 nếu không còn đánh giá nào
+      ratingsQuantity: 0,
+      averageRating: 0 
     });
   }
 };
 
-// Gọi hàm sau khi lưu review mới
+// 1. Chạy sau khi lưu (Tạo mới)
 reviewSchema.post('save', function() {
   this.constructor.calcAverageRatings(this.tour);
 });
 
-// Chặn không cho lưu xuống dưới module.exports
+/**
+ * 2. QUAN TRỌNG: Chạy khi Update hoặc Delete
+ * findByIdAndUpdate và findByIdAndDelete thực chất là findOneAnd...
+ */
+reviewSchema.post(/^findOneAnd/, async function(doc) {
+  if (doc) {
+    await doc.constructor.calcAverageRatings(doc.tour);
+  }
+});
+
 module.exports = mongoose.model('Review', reviewSchema);
