@@ -32,8 +32,8 @@ exports.protect = async (req, res, next) => {
     // Gắn user vào request để các middleware sau có thể truy cập
     req.user = currentUser;
 
-    // Log kiểm tra
-    console.log("✅ Đã xác thực người dùng:", req.user.email, "| role:", req.user.role);
+    // // Log kiểm tra
+    // console.log("✅ Đã xác thực người dùng:", req.user.email, "| role:", req.user.role);
 
     next();
   } catch (error) {
