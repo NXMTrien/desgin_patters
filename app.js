@@ -42,7 +42,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.error(err));
 
 app.use(express.json());
-
+// console.log("BACKEND GOOGLE CLIENT ID:", process.env.GOOGLE_CLIENT_ID);
 // Sử dụng routes
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoryRoutes);

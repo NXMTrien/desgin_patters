@@ -495,70 +495,48 @@ exports.resetPassword = async (req, res) => {
 };
 
 exports.googleLogin = async (req, res) => {
-    try {
-        const { idToken } = req.body;
+  const { idToken } = req.body;
 
-        if (!idToken) {
-            return res.status(400).json({ message: "Thiếu mã xác thực Google (idToken)." });
-        }
+  const ticket = await client.verifyIdToken({
+    idToken,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
 
-        // 1. Xác thực Token với Google
-        const ticket = await client.verifyIdToken({
-            idToken,
-            audience: process.env.GOOGLE_CLIENT_ID,
-        });
+  const payload = ticket.getPayload();
 
-        const payload = ticket.getPayload();
-        const { email, name, picture, sub: googleId } = payload;
+  if (!payload.email_verified) {
+    return res.status(401).json({ message: 'Email chưa được xác thực' });
+  }
 
-        // 2. Tìm kiếm người dùng trong Database
-        let user = await User.findOne({ email });
+  let user = await User.findOne({ email: payload.email });
 
-        if (!user) {
-            // 3. Nếu chưa có, tạo mới qua Factory Pattern
-            // Google đã xác thực email này rồi nên set isVerified = true
-            const userData = { 
-                username: name, 
-                email, 
-                role: 'user', // Mặc định là user
-                isVerified: true 
-            };
-            
-            const newUserData = UserFactory.createUser(userData);
-            
-            user = new User({
-                ...newUserData,
-                googleId: googleId,
-                avatar: picture, // Lưu ảnh đại diện từ Google
-                password: Math.random().toString(36).slice(-10) + "Aa1!", // Mật khẩu ngẫu nhiên cho đủ Schema
-                isVerified: true
-            });
+  if (!user) {
+    user = await User.create({
+      username: payload.name,
+      email: payload.email,
+      avatar: payload.picture,
+      googleId: payload.sub,
+      role: 'user',
+      isVerified: true,
+      password: Math.random().toString(36).slice(-12) + "Aa1!",
+    });
+  }
 
-            await user.save();
-        }
+  if (user.isBlocked) {
+    return res.status(403).json({ message: 'Tài khoản bị khóa' });
+  }
 
-        // 4. Kiểm tra xem tài khoản có bị khóa không (nếu có logic isBlocked)
-        if (user.isBlocked) {
-            return res.status(403).json({ message: "Tài khoản của bạn đã bị khóa." });
-        }
+  const token = generateToken(user._id, user.role);
 
-        // 5. Tạo Token hệ thống và trả về kết quả (Giống logic loginUser của bạn)
-        const userInstance = UserFactory.createUser({ ...user._doc, role: user.role });
-        const token = generateToken(user._id, user.role);
-
-        res.status(200).json({
-            message: 'Đăng nhập Google thành công',
-            _id: user._id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            avatar: user.avatar,
-            permissions: userInstance.permissions,
-            token,
-        });
-
-    } catch (error) {
-        console.error("Google Login Error:", error);
-        res.status(401).json({ message: "Xác thực Google thất bại hoặc mã đã hết hạn." });
+  res.json({
+    message: 'Google login success',
+    token,
+    user: {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar,
+      role: user.role,
     }
+  });
 };
