@@ -28,6 +28,7 @@ app.use('/img/tours', express.static(path.join(process.cwd(), 'public', 'img', '
 app.use(cors({
   origin: [
     "http://localhost:3000",
+   "https://tourify-frontend.vercel.app",
     "https://tourify-frontend-mbc678tzg-minh-triens-projects.vercel.app"
   ],
   methods: ["GET", "POST", "PATCH","PUT", "DELETE"],
