@@ -22,8 +22,13 @@ class TourServiceWithLogging extends TourServiceDecorator {
   }
 
   async updateTour(id, data) {
-    console.log(`[LOG - TourService] Attempting to update tour with ID: ${id}`);
-    return this.tourService.updateTour(id, data);
+    const updatedTour = await this.tourService.updateTour(id, data);
+    
+    // 2. Xóa cache của chính tour đó và xóa cache danh sách (vì trung bình sao đã đổi)
+    this.cache.delete(id);
+    this.clearAllCache(); 
+    
+    return updatedTour;
   }
 
   async deleteTour(id) {

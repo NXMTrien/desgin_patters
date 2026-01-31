@@ -4,6 +4,7 @@ const Tour = require('../models/Tour');
 
 // 1. Tạo đánh giá mới
 exports.createReview = async (req, res) => {
+  console.log("===> ĐÃ NHẬN REQUEST TẠO REVIEW <===");
   try {
     // Cho phép truyền tourId từ URL hoặc body
     if (!req.body.tour) req.body.tour = req.params.tourId;

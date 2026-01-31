@@ -21,7 +21,18 @@ const tourSchema = new mongoose.Schema({
     type: [Date], 
   required: [true, 'Tour phải có ít nhất một ngày khởi hành.'],
 },
-  averageRating: { type: Number, default: 0 },
+  averageRating: { 
+    type: Number, 
+    default: 0,
+    min: [0, 'Rating phải từ 0 trở lên'],
+    max: [5, 'Rating tối đa là 5'],
+    
+    set: val => Math.round(val * 10) / 10 
+  },
+  ratingsQuantity: { 
+    type: Number, 
+    default: 0 
+  },
   maxGroupSize: { type: Number, required: true, min: 1 },
  imageCover: {
         type: String, // Tên file hoặc URL của ảnh chính

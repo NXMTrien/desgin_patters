@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const Tour = require('./Tour'); // Hãy đảm bảo đường dẫn này chính xác
 
 const reviewSchema = new mongoose.Schema({
   tour: {
@@ -31,14 +30,14 @@ const reviewSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Đảm bảo mỗi user chỉ được review 1 tour duy nhất 1 lần (Nên mở comment nếu cần)
-// reviewSchema.index({ tour: 1, user: 1 }, { unique: true });
-
-// --- TÍNH TOÁN RATING ---
-
+// THUẬT TOÁN TÍNH TOÁN
 reviewSchema.statics.calcAverageRatings = async function(tourId) {
+  console.log('--- ĐANG CHẠY AGGREGATE CHO TOUR:', tourId);
+
   const stats = await this.aggregate([
-    { $match: { tour: tourId } },
+    {
+      $match: { tour: new mongoose.Types.ObjectId(tourId) }
+    },
     {
       $group: {
         _id: '$tour',
@@ -48,32 +47,43 @@ reviewSchema.statics.calcAverageRatings = async function(tourId) {
     }
   ]);
 
+  console.log('--- KẾT QUẢ STATS TỪ ATLAS:', stats);
+
   if (stats.length > 0) {
-    await Tour.findByIdAndUpdate(tourId, {
-      // Làm tròn 1 chữ số thập phân (VD: 4.666 -> 4.7) để frontend hiển thị đẹp
-      ratingsQuantity: stats[0].nRating,
-      averageRating: Math.round(stats[0].avgRating * 10) / 10 
-      
+    const updatedTour = await mongoose.model('Tour').findByIdAndUpdate(
+      tourId, 
+      {
+        ratingsQuantity: stats[0].nRating,
+        averageRating: Math.round(stats[0].avgRating * 10) / 10
+      },
+      { new: true, runValidators: false } 
+    );
+    
+    // LOG NÀY SẼ XÁC NHẬN DỮ LIỆU ĐÃ VÀO DB CHƯA
+    console.log('--- KẾT QUẢ TOUR SAU KHI UPDATE TRONG DB:', {
+        id: updatedTour._id,
+        rating: updatedTour.averageRating,
+        quantity: updatedTour.ratingsQuantity
     });
   } else {
-    await Tour.findByIdAndUpdate(tourId, {
+    await mongoose.model('Tour').findByIdAndUpdate(tourId, {
       ratingsQuantity: 0,
-      averageRating: 0 
+      averageRating: 0
     });
+    console.log('--- ĐÃ RESET RATING VỀ 0 ---');
   }
 };
 
-// 1. Chạy sau khi lưu (Tạo mới)
+// MIDDLEWARE
 reviewSchema.post('save', function() {
+  console.log('--- MIDDLEWARE SAVE ĐÃ CHẠY ---');
   this.constructor.calcAverageRatings(this.tour);
 });
 
-/**
- * 2. QUAN TRỌNG: Chạy khi Update hoặc Delete
- * findByIdAndUpdate và findByIdAndDelete thực chất là findOneAnd...
- */
+// DÀNH CHO MONGOOSE 7+ (XỬ LÝ UPDATE/DELETE)
 reviewSchema.post(/^findOneAnd/, async function(doc) {
   if (doc) {
+    console.log('--- MIDDLEWARE UPDATE/DELETE ĐÃ CHẠY ---');
     await doc.constructor.calcAverageRatings(doc.tour);
   }
 });
