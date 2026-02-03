@@ -12,18 +12,22 @@ const transporter = nodemailer.createTransport({
 });
 
 // Kiểm tra kết nối
-await new Promise((resolve, reject)=>{
-
-    transporter.verify(function (error, success) {
-        if (error) {
-            console.log(error);
-            reject(error);
-        } else {
-            console.log("Server is ready to take our messages");
-            resolve(success);
-        }
+const verifyConnection = async () => {
+    return new Promise((resolve, reject) => {
+        transporter.verify(function (error, success) {
+            if (error) {
+                console.log("❌ Mail Server Error:", error);
+                reject(error);
+            } else {
+                console.log("✅ Server is ready to take our messages");
+                resolve(success);
+            }
+        });
     });
-});
+};
+
+
+verifyConnection().catch(err => console.error("Initial mail verify failed"));
 /**
  * 2. HÀM GỬI MAIL TỔNG QUÁT (Core function)
  * Tất cả các hàm bên dưới sẽ gọi qua hàm này
