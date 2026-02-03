@@ -3,8 +3,8 @@ const nodemailer = require('nodemailer');
 // 1. Khởi tạo transporter dùng chung
 const transporter = nodemailer.createTransport({
     host: process.env.MAIL_HOST,
-    port: process.env.MAIL_PORT || 465, 
-    secure: true, 
+    port: process.env.MAIL_PORT , 
+    secure: false, 
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS, 
