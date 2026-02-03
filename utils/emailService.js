@@ -3,13 +3,15 @@ const nodemailer = require('nodemailer');
 
 // 🚨 Lấy thông tin từ biến môi trường
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
+    driver:process.env.MAIL_DRIVER,
+    host: process.env.MAIL_HOST,
+    port: process.env.MATL_PORT,
     secure: true, 
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS, 
     },
+    encryption:process.env.MAIL_ENCRYPTION
 });
 
 const sendVerificationEmail = async (email, otp) => {
