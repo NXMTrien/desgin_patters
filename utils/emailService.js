@@ -12,29 +12,50 @@ const transporter = nodemailer.createTransport({
 });
 
 // Kiểm tra kết nối
-transporter.verify((error) => {
-    if (error) console.error("❌ Lỗi cấu hình Email:", error);
-    else console.log("🚀 Hệ thống Email đã sẵn sàng!");
-});
+await new Promise((resolve, reject)=>{
 
+    transporter.verify(function (error, success) {
+        if (error) {
+            console.log(error);
+            reject(error);
+        } else {
+            console.log("Server is ready to take our messages");
+            resolve(success);
+        }
+    });
+});
 /**
  * 2. HÀM GỬI MAIL TỔNG QUÁT (Core function)
  * Tất cả các hàm bên dưới sẽ gọi qua hàm này
  */
-const sendEmail = async ({ to, subject, html }) => {
-    try {
-        const mailOptions = {
-            from: `"Tourify_Magic xin chào" <${process.env.EMAIL_USER}>`,
-            to,
-            subject,
-            html,
-        };
+const sendEmail = async ({ to, subject, html, replyTo, firstName = "Tourify", lastName = "Magic" }) => {
+    const mailData = {
+        from: {
+            name: `${firstName}_${lastName}`,
+            address: process.env.EMAIL_USER,
+        },
+        replyTo: replyTo || to, 
+        to: to,
+        subject: subject,
+        text: html.replace(/<[^>]*>?/gm, ''), 
+        html: html,
+    };
 
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`✅ Email sent: ${info.messageId}`);
+    try {
+        const info = await new Promise((resolve, reject) => {
+            // send mail
+            transporter.sendMail(mailData, (err, info) => {
+                if (err) {
+                    console.error("❌ Lỗi gửi email:", err);
+                    reject(err);
+                } else {
+                    console.log("✅ Email sent:", info.messageId);
+                    resolve(info);
+                }
+            });
+        });
         return true;
     } catch (error) {
-        console.error('❌ Lỗi gửi email:', error);
         return false;
     }
 };
