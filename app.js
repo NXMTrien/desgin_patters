@@ -31,6 +31,27 @@ app.use(cors({
    "https://tourify-frontend.vercel.app",
     "https://tourify-frontend-mbc678tzg-minh-triens-projects.vercel.app"
   ],
+//   origin:[{
+//     key:"Access-Control-Allow-Origin",
+//     value:"*",
+//   },
+//   {
+//     key:"Access-Control-Allow-Methods",
+//     value:"GET ,POST,PUT, PATCH,DELETE OPTIONS",
+//   },
+//   {
+//     key:"Access-Control-Allow-Headers",
+//     value:"Origin, X-Requested-With, Content-Type, Accept, Authorizaton",
+//   },
+//   {
+//     key:"Access-Control-Max-Age",
+//     value:"86400",
+//   },
+//   {
+//     key:"Vary",
+//     value:"Origin",
+//   },
+// ],
   methods: ["GET", "POST", "PATCH","PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));

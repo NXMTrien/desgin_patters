@@ -1,70 +1,40 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// 1. Khởi tạo transporter dùng chung
-const transporter = nodemailer.createTransport({
-    host: process.env.MAIL_HOST,
-    port: process.env.MAIL_PORT , 
-    secure: false, 
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, 
-    },
-});
+// 1. Khởi tạo Resend thay vì Nodemailer
+// Đảm bảo bạn đã cài đặt: npm install resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Kiểm tra kết nối
-const verifyConnection = async () => {
-    return new Promise((resolve, reject) => {
-        transporter.verify(function (error, success) {
-            if (error) {
-                console.log("❌ Mail Server Error:", error);
-                reject(error);
-            } else {
-                console.log("✅ Server is ready to take our messages");
-                resolve(success);
-            }
-        });
-    });
-};
-
-
-verifyConnection().catch(err => console.error("Initial mail verify failed"));
 /**
- * 2. HÀM GỬI MAIL TỔNG QUÁT (Core function)
- * Tất cả các hàm bên dưới sẽ gọi qua hàm này
+ * 2. HÀM GỬI MAIL TỔNG QUÁT (Sử dụng Resend SDK)
+ * Hàm này thay thế hoàn toàn logic transporter.sendMail cũ
  */
-const sendEmail = async ({ to, subject, html, replyTo, firstName = "Tourify", lastName = "Magic" }) => {
-    const mailData = {
-        from: {
-            name: `${firstName}_${lastName}`,
-            address: process.env.EMAIL_USER,
-        },
-        replyTo: replyTo || to, 
-        to: to,
-        subject: subject,
-        text: html.replace(/<[^>]*>?/gm, ''), 
-        html: html,
-    };
-
+const sendEmail = async ({ to, subject, html, firstName = "Tourify", lastName = "Magic" }) => {
     try {
-        const info = await new Promise((resolve, reject) => {
-            // send mail
-            transporter.sendMail(mailData, (err, info) => {
-                if (err) {
-                    console.error("❌ Lỗi gửi email:", err);
-                    reject(err);
-                } else {
-                    console.log("✅ Email sent:", info.messageId);
-                    resolve(info);
-                }
-            });
+        const { data, error } = await resend.emails.send({
+            // LƯU Ý: Nếu chưa verify domain, bạn phải dùng 'onboarding@resend.dev'
+            // Nếu đã verify domain rồi thì dùng: 'noreply@yourdomain.com'
+            from: `${firstName} ${lastName} <onboarding@resend.dev>`,
+            to: [to],
+            subject: subject,
+            html: html,
+            // Resend tự động tạo bản text từ HTML, nhưng bạn có thể thêm nếu muốn
+            text: html.replace(/<[^>]*>?/gm, ''),
         });
+
+        if (error) {
+            console.error("❌ Resend API Error:", error);
+            return false;
+        }
+
+        console.log("✅ Email sent successfully, ID:", data.id);
         return true;
-    } catch (error) {
+    } catch (err) {
+        console.error("❌ System Error sending email:", err);
         return false;
     }
 };
 
-
+// --- CÁC HÀM TIỆN ÍCH (Giữ nguyên cấu trúc gọi hàm sendEmail) ---
 
 const sendVerificationEmail = async (email, otp) => {
     return await sendEmail({
@@ -150,7 +120,7 @@ const sendBookingCancellationEmail = async (email, booking, tourTitle) => {
 };
 
 module.exports = {
-    sendEmail, // Bạn có thể gọi trực tiếp hàm này nếu muốn gửi mail tùy biến
+    sendEmail,
     sendVerificationEmail,
     sendPasswordResetEmail,
     sendBookingConfirmationEmail,
